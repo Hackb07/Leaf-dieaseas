@@ -5,14 +5,14 @@ import torchvision.transforms as transforms
 from PIL import Image
 import os
 
-# --------------------------------------------------
+# ==================================================
 # Device Configuration
-# --------------------------------------------------
+# ==================================================
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# --------------------------------------------------
+# ==================================================
 # CNN Model Definition
-# --------------------------------------------------
+# ==================================================
 class PlantDiseaseCNN(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
@@ -32,9 +32,9 @@ class PlantDiseaseCNN(nn.Module):
         x = self.relu(self.fc1(x))
         return self.fc2(x)
 
-# --------------------------------------------------
-# Model & Dataset Configuration
-# --------------------------------------------------
+# ==================================================
+# Model Configuration
+# ==================================================
 models_info = {
     "Tomato Disease": {
         "model_path": "saved-model/saved-model/tomato-detection-model.pth",
@@ -53,9 +53,9 @@ models_info = {
 models = {}
 class_names = {}
 
-# --------------------------------------------------
+# ==================================================
 # Load Models & Class Names
-# --------------------------------------------------
+# ==================================================
 for disease, info in models_info.items():
     state_dict = torch.load(info["model_path"], map_location=device)
 
@@ -67,46 +67,47 @@ for disease, info in models_info.items():
 
     models[disease] = model
 
-    # Load class names from dataset folders
     class_names[disease] = sorted([
-        d for d in os.listdir(info["dataset_path"])
-        if os.path.isdir(os.path.join(info["dataset_path"], d))
+        cls for cls in os.listdir(info["dataset_path"])
+        if os.path.isdir(os.path.join(info["dataset_path"], cls))
     ])
 
-# --------------------------------------------------
-# Image Transform
-# --------------------------------------------------
+# ==================================================
+# Image Preprocessing
+# ==================================================
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                         std=[0.5, 0.5, 0.5])
+    transforms.Normalize(
+        mean=[0.5, 0.5, 0.5],
+        std=[0.5, 0.5, 0.5]
+    )
 ])
 
-# --------------------------------------------------
+# ==================================================
 # Prediction Function
-# --------------------------------------------------
+# ==================================================
 def predict_image(image, model, disease):
     image = image.convert("RGB")
     image = transform(image).unsqueeze(0).to(device)
 
     with torch.no_grad():
-        outputs = model(image)
-        pred_index = torch.argmax(outputs, dim=1).item()
+        output = model(image)
+        predicted_index = torch.argmax(output, dim=1).item()
 
-    return class_names[disease][pred_index]
+    return class_names[disease][predicted_index]
 
-# --------------------------------------------------
+# ==================================================
 # Streamlit UI
-# --------------------------------------------------
-st.title("🌿 Plant Disease Detection App")
-st.sidebar.info("Upload a leaf image to detect plant disease")
+# ==================================================
+st.set_page_config(page_title="Plant Disease Detection", layout="centered")
+
+st.title("🌿 Plant Disease Detection")
 
 tab1, tab2, tab3 = st.tabs(["🍅 Tomato", "🌶️ Pepper", "🥔 Potato"])
 
 for tab, disease in zip([tab1, tab2, tab3], models_info.keys()):
     with tab:
-        st.subheader(disease)
         uploaded_file = st.file_uploader(
             "Upload leaf image",
             type=["jpg", "jpeg", "png"],
@@ -115,8 +116,9 @@ for tab, disease in zip([tab1, tab2, tab3], models_info.keys()):
 
         if uploaded_file:
             image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image", use_column_width=True)
+            st.image(image, use_column_width=True)
 
             prediction = predict_image(image, models[disease], disease)
 
-            st.success(f"🧠 **Predicted Class:** {prediction}")
+            # 🔥 ONLY CLASS NAME DISPLAYED
+            st.markdown(f"## {prediction}")
